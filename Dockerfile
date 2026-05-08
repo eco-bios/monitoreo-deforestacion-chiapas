@@ -16,5 +16,16 @@ COPY . .
 # Variable de entorno por default
 ENV GEE_PROJECT_ID=""
 
-# Comando para correr los tests
-CMD ["pytest", "tests/", "-v"]
+# FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+ENV GEE_PROJECT_ID=""
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

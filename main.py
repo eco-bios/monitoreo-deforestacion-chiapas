@@ -81,3 +81,23 @@ def analizar(sitio: SitioRequest):
     except Exception as e:
         logger.error("Error en análisis: %s", str(e))
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+        @app.post("/scheduler/analizar-zona")
+def analizar_zona_programada(zona_index: int = 0):
+    """
+    Endpoint para Cloud Scheduler — analiza una zona predefinida.
+    zona_index: 0-4 según la lista de ZONAS
+    """
+    if zona_index < 0 or zona_index >= len(ZONAS):
+        raise HTTPException(status_code=400, detail="Índice de zona inválido")
+    
+    zona = ZONAS[zona_index]
+    try:
+        geometria = ee.Geometry.Point([zona["lon"], zona["lat"]])
+        resultado = analizar_salud_vegetal(geometria, zona["nombre"])
+        logger.info("Zona analizada por scheduler: %s", zona["nombre"])
+        return resultado
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("Error en scheduler: %s", str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")

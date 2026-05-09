@@ -40,7 +40,8 @@ def startup():
         initialize_gee()
         logger.info("GEE inicializado correctamente")
     except Exception as e:
-        logger.error("Error inicializando GEE: %s", str(e))
+        logger.warning("GEE no inicializado al arrancar: %s", str(e))
+        # No lanzamos excepción — la API arranca igual
 
 
 @app.get("/")

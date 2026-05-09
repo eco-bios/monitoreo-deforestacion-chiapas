@@ -1,6 +1,8 @@
 import ee
 import logging
 import os
+import json
+import base64
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -8,11 +10,13 @@ logger = logging.getLogger(__name__)
 def initialize_gee() -> bool:
     """
     Inicializa la conexión con Google Earth Engine.
-    Usa variables de entorno en lugar de credenciales hardcodeadas.
-
+    Soporta dos modos:
+    - Local: usa Application Default Credentials
+    - Producción: usa GOOGLE_APPLICATION_CREDENTIALS_JSON (base64)
+    
     Returns:
         bool: True si la conexión fue exitosa
-
+    
     Raises:
         EnvironmentError: Si GEE_PROJECT_ID no está configurado
         ee.EEException: Si falla la conexión con GEE
@@ -28,11 +32,25 @@ def initialize_gee() -> bool:
         )
 
     try:
-        ee.Initialize(project=project_id)
-        ee.Image("USGS/SRTMGL1_003").getInfo()
-        logger.info("Conexión con GEE exitosa. Proyecto: %s", project_id)
+        # Modo producción — credenciales en base64
+        credentials_b64 = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        
+        if credentials_b64:
+            credentials_json = base64.b64decode(credentials_b64).decode("utf-8")
+            credentials_dict = json.loads(credentials_json)
+            credentials = ee.ServiceAccountCredentials(
+                email=credentials_dict["client_email"],
+                key_data=json.dumps(credentials_dict)
+            )
+            ee.Initialize(credentials=credentials, project=project_id)
+            logger.info("GEE inicializado con Service Account. Proyecto: %s", project_id)
+        else:
+            # Modo local — Application Default Credentials
+            ee.Initialize(project=project_id)
+            logger.info("GEE inicializado con ADC. Proyecto: %s", project_id)
+
         return True
 
     except ee.EEException as e:
         logger.error("Error de GEE: %s", str(e))
-        raise
+        raise 

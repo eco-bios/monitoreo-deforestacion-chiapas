@@ -5,18 +5,15 @@ from pydantic import BaseModel
 from src.gee.client import initialize_gee
 from src.gee.ndvi import analizar_salud_vegetal
 
-# Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Inicializar la app
 app = FastAPI(
     title="Monitoreo de Deforestación Chiapas",
     description="API para análisis de salud vegetal usando NDVI, EVI y NBR",
     version="1.0.0"
 )
 
-# Zonas predefinidas en rotación
 ZONAS = [
     {"nombre": "Selva Lacandona",  "lat": 16.8,  "lon": -91.5},
     {"nombre": "Montes Azules",    "lat": 16.5,  "lon": -91.2},
@@ -26,7 +23,6 @@ ZONAS = [
 ]
 
 
-# Modelo para peticiones manuales
 class SitioRequest(BaseModel):
     lat: float
     lon: float
@@ -35,13 +31,11 @@ class SitioRequest(BaseModel):
 
 @app.on_event("startup")
 def startup():
-    """Inicializa GEE al arrancar la API."""
     try:
         initialize_gee()
         logger.info("GEE inicializado correctamente")
     except Exception as e:
         logger.warning("GEE no inicializado al arrancar: %s", str(e))
-        # No lanzamos excepción — la API arranca igual
 
 
 @app.get("/")
@@ -49,7 +43,7 @@ def root():
     return {
         "proyecto": "Monitoreo de Deforestación Chiapas",
         "version": "1.0.0",
-        "endpoints": ["/analizar", "/zonas", "/health"]
+        "endpoints": ["/analizar", "/zonas", "/health", "/scheduler/analizar-zona"]
     }
 
 
@@ -60,18 +54,13 @@ def health():
 
 @app.get("/zonas")
 def listar_zonas():
-    """Lista las zonas predefinidas de monitoreo."""
     return {"zonas": ZONAS}
 
 
 @app.post("/analizar")
 def analizar(sitio: SitioRequest):
     """
-    Analiza la salud vegetal de cualquier punto en Chiapas.
-    
-    - **lat**: Latitud del punto
-    - **lon**: Longitud del punto  
-    - **nombre**: Nombre descriptivo del sitio
+    Analiza la salud vegetal de cualquier punto.
     """
     try:
         geometria = ee.Geometry.Point([sitio.lon, sitio.lat])
@@ -82,7 +71,9 @@ def analizar(sitio: SitioRequest):
     except Exception as e:
         logger.error("Error en análisis: %s", str(e))
         raise HTTPException(status_code=500, detail="Error interno del servidor")
-        @app.post("/scheduler/analizar-zona")
+
+
+@app.post("/scheduler/analizar-zona")
 def analizar_zona_programada(zona_index: int = 0):
     """
     Endpoint para Cloud Scheduler — analiza una zona predefinida.
@@ -90,7 +81,7 @@ def analizar_zona_programada(zona_index: int = 0):
     """
     if zona_index < 0 or zona_index >= len(ZONAS):
         raise HTTPException(status_code=400, detail="Índice de zona inválido")
-    
+
     zona = ZONAS[zona_index]
     try:
         geometria = ee.Geometry.Point([zona["lon"], zona["lat"]])

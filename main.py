@@ -1,5 +1,7 @@
 import ee
 import logging
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from src.gee.client import initialize_gee
@@ -12,7 +14,8 @@ app = FastAPI(
     title="Monitoreo de Deforestación Chiapas",
     description="API para análisis de salud vegetal usando NDVI, EVI y NBR",
     version="1.0.0"
-)
+) 
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 ZONAS = [
     {"nombre": "Selva Lacandona",  "lat": 16.8,  "lon": -91.5},
@@ -45,12 +48,7 @@ def startup():
 
 @app.get("/")
 def root():
-    return {
-        "proyecto": "Monitoreo de Deforestación Chiapas",
-        "version": "1.0.0",
-        "endpoints": ["/analizar", "/analizar/poligono", "/zonas", "/health", "/scheduler/analizar-zona"]
-    }
-
+    return FileResponse("static/index.html")
 
 @app.get("/health")
 def health():

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo Forestal Chiapas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, sans-serif;
+            background: #0a1628;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #4ade80;
+            font-size: 1.4rem;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: #1e2d45;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        input {
+            width: 100%;
+            background: #0a1628;
+            border: 1px solid #2d3f5a;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #e0e0e0;
+            font-size: 1rem;
+            margin-bottom: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+
+        button {
+            width: 100%;
+            background: #4ade80;
+            color: #0a1628;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #2d3f5a;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .resultado {
+            display: none;
+        }
+
+        .indice-card {
+            background: #0a1628;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 10px;
+        }
+
+        .indice-nombre {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .indice-valor {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #4ade80;
+        }
+
+        .indice-delta {
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        .positivo {
+            color: #4ade80;
+        }
+
+        .negativo {
+            color: #f87171;
+        }
+
+        .interpretacion {
+            background: #0a1628;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .error {
+            background: #2d1b1b;
+            border: 1px solid #f87171;
+            border-radius: 8px;
+            padding: 14px;
+            color: #f87171;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #94a3b8;
+            padding: 20px;
+            display: none;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            flex: 1;
+            background: #1e2d45;
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .tab.active {
+            background: #4ade80;
+            color: #0a1628;
+            font-weight: 700;
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .vertice-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .vertice-row input {
+            margin-bottom: 0;
+        }
+
+        .btn-agregar {
+            background: transparent;
+            border: 1px dashed #4ade80;
+            color: #4ade80;
+            margin-bottom: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🛰️ Monitoreo Forestal Chiapas</h1>
+        <p class="subtitle">Análisis de salud vegetal con imágenes satelitales Sentinel-2</p>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('punto')">📍 Por Punto</button>
+            <button class="tab" onclick="switchTab('poligono')">🔷 Por Polígono</button>
+        </div>
+
+        <!-- Panel Punto -->
+        <div class="panel active" id="panel-punto">
+            <div class="card">
+                <label>Nombre del sitio</label>
+                <input type="text" id="nombre" placeholder="Ej: Mi parcela" value="Mi sitio">
+                <label>Latitud</label>
+                <input type="number" id="lat" placeholder="Ej: 16.8" step="any">
+                <label>Longitud</label>
+                <input type="number" id="lon" placeholder="Ej: -91.5" step="any">
+                <button id="btn-punto" onclick="analizarPunto()">Analizar</button>
+            </div>
+        </div>
+
+        <!-- Panel Polígono -->
+        <div class="panel" id="panel-poligono">
+            <div class="card">
+                <label>Nombre del sitio</label>
+                <input type="text" id="nombre-pol" placeholder="Ej: Mi parcela" value="Mi polígono">
+                <label>Vértices del polígono</label>
+                <div id="vertices"></div>
+                <button class="btn-agregar" onclick="agregarVertice()">+ Agregar vértice</button>
+                <button id="btn-poligono" onclick="analizarPoligono()">Analizar</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">⏳ Analizando imágenes satelitales... (30-60 seg)</div>
+        <div class="error" id="error"></div>
+
+        <div class="resultado card" id="resultado">
+            <h2 id="sitio-nombre" style="color:#4ade80; margin-bottom:16px;"></h2>
+            <div id="indices"></div>
+            <div class="interpretacion" id="interpretacion"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'https://monitoreo-chiapas-306961522035.us-central1.run.app';
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('panel-' + tab).classList.add('active');
+        }
+
+        function agregarVertice() {
+            const div = document.getElementById('vertices');
+            const row = document.createElement('div');
+            row.className = 'vertice-row';
+            row.innerHTML = `
+        <input type="number" placeholder="Lon" step="any">
+        <input type="number" placeholder="Lat" step="any">
+    `;
+            div.appendChild(row);
+        }
+
+        function interpretacion(indices) {
+            const ndviDelta = indices.ndvi.delta;
+            const nbrDelta = indices.nbr.delta;
+            let texto = '';
+
+            if (ndviDelta > 0.05) texto += '🌿 La vegetación mejoró significativamente. ';
+            else if (ndviDelta > 0) texto += '🌱 La vegetación se mantiene estable con ligera mejora. ';
+            else if (ndviDelta > -0.05) texto += '⚠️ La vegetación muestra leve degradación. ';
+            else texto += '🚨 Se detecta degradación severa de la vegetación. ';
+
+            if (nbrDelta < -0.1) texto += '🔥 Posible actividad de incendio reciente detectada.';
+            else if (nbrDelta > 0.05) texto += '✅ Sin evidencia de incendios recientes.';
+
+            return texto;
+        }
+
+        function mostrarResultado(data) {
+            document.getElementById('sitio-nombre').textContent = '📍 ' + data.sitio;
+            const indices = data.indices;
+            let html = '';
+            const nombres = { ndvi: 'NDVI — Salud vegetal', evi: 'EVI — Vegetación densa', nbr: 'NBR — Riesgo de incendio' };
+
+            for (const [key, val] of Object.entries(indices)) {
+                const deltaClass = val.delta >= 0 ? 'positivo' : 'negativo';
+                const deltaIcon = val.delta >= 0 ? '▲' : '▼';
+                html += `
+        <div class="indice-card">
+            <div class="indice-nombre">${nombres[key]}</div>
+            <div class="indice-valor">${val['2026'].toFixed(3)}</div>
+            <div class="indice-delta ${deltaClass}">${deltaIcon} ${Math.abs(val.delta).toFixed(3)} vs 2024</div>
+        </div>`;
+            }
+
+            document.getElementById('indices').innerHTML = html;
+            document.getElementById('interpretacion').textContent = interpretacion(indices);
+            document.getElementById('resultado').style.display = 'block';
+        }
+
+        async function analizarPunto() {
+            const nombre = document.getElementById('nombre').value;
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lon = parseFloat(document.getElementById('lon').value);
+
+            if (!lat || !lon) { mostrarError('Ingresa latitud y longitud'); return; }
+
+            iniciarCarga('btn-punto');
+            try {
+                const res = await fetch(API + '/analizar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat, lon, nombre })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail);
+                mostrarResultado(data);
+            } catch (e) {
+                mostrarError('Error: ' + e.message);
+            } finally {
+                terminarCarga('btn-punto', 'Analizar');
+            }
+        }
+
+        async function analizarPoligono() {
+            const nombre = document.getElementById('nombre-pol').value;
+            const rows = document.querySelectorAll('#vertices .vertice-row');
+            const vertices = [];
+
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                const lon = parseFloat(inputs[0].value);
+                const lat = parseFloat(inputs[1].value);
+                if (!isNaN(lon) && !isNaN(lat)) vertices.push([lon, lat]);
+            });
+
+            if (vertices.length < 3) { mostrarError('Ingresa al menos 3 vértices'); return; }
+
+            iniciarCarga('btn-poligono');
+            try {
+                const res = await fetch(API + '/analizar/poligono', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vertices, nombre })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail);
+                mostrarResultado(data);
+            } catch (e) {
+                mostrarError('Error: ' + e.message);
+            } finally {
+                terminarCarga('btn-poligono', 'Analizar');
+            }
+        }
+
+        function iniciarCarga(btnId) {
+            document.getElementById(btnId).disabled = true;
+            document.getElementById(btnId).textContent = 'Analizando...';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('resultado').style.display = 'none';
+        }
+
+        function terminarCarga(btnId, texto) {
+            document.getElementById(btnId).disabled = false;
+            document.getElementById(btnId).textContent = texto;
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function mostrarError(msg) {
+            const el = document.getElementById('error');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        // Inicializar con 4 vértices
+        for (let i = 0; i < 4; i++) agregarVertice();
+    </script>
+</body>
+
+</html>

@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from src.gee.client import initialize_gee
-from src.gee.ndvi import analizar_salud_vegetal
+from src.gee.ndvi import analizar_salud_vegetal, analizar_poligono
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,6 +29,11 @@ class SitioRequest(BaseModel):
     nombre: str = "Sitio personalizado"
 
 
+class PoligonoRequest(BaseModel):
+    vertices: list
+    nombre: str = "Polígono personalizado"
+
+
 @app.on_event("startup")
 def startup():
     try:
@@ -43,7 +48,7 @@ def root():
     return {
         "proyecto": "Monitoreo de Deforestación Chiapas",
         "version": "1.0.0",
-        "endpoints": ["/analizar", "/zonas", "/health", "/scheduler/analizar-zona"]
+        "endpoints": ["/analizar", "/analizar/poligono", "/zonas", "/health", "/scheduler/analizar-zona"]
     }
 
 
@@ -70,6 +75,27 @@ def analizar(sitio: SitioRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("Error en análisis: %s", str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@app.post("/analizar/poligono")
+def analizar_por_poligono(request: PoligonoRequest):
+    """
+    Analiza salud vegetal de un polígono definido por vértices.
+
+    - **vertices**: Lista de pares [lon, lat]
+    - **nombre**: Nombre descriptivo del sitio
+
+    Ejemplo de vertices:
+    [[-91.72, 17.72], [-91.71, 17.72], [-91.71, 17.73], [-91.72, 17.73]]
+    """
+    try:
+        resultado = analizar_poligono(request.vertices, request.nombre)
+        return resultado
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Error en análisis de polígono: %s", str(e))
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 

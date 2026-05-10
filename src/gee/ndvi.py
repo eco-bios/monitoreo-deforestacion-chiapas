@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_ndvi(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Image:
-    """Obtiene imagen NDVI para un período específico."""
+    """Obtiene imagen NDVI para un periodo especifico."""
     coleccion = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(region)
         .filterDate(fecha_inicio, fecha_fin)
@@ -15,7 +15,7 @@ def _get_ndvi(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Imag
 
 
 def _get_evi(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Image:
-    """Obtiene imagen EVI para un período específico."""
+    """Obtiene imagen EVI para un periodo especifico."""
     coleccion = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(region)
         .filterDate(fecha_inicio, fecha_fin)
@@ -31,7 +31,7 @@ def _get_evi(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Image
 
 
 def _get_nbr(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Image:
-    """Obtiene imagen NBR para detección de áreas quemadas."""
+    """Obtiene imagen NBR para deteccion de areas quemadas."""
     coleccion = (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(region)
         .filterDate(fecha_inicio, fecha_fin)
@@ -43,21 +43,10 @@ def _get_nbr(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Image
 def analizar_salud_vegetal(geometria: ee.Geometry, nombre_sitio: str) -> dict:
     """
     Analiza NDVI, EVI y NBR comparando 2024 vs 2026.
-
-    Args:
-        geometria: Punto o polígono de Earth Engine
-        nombre_sitio: Nombre descriptivo del sitio
-
-    Returns:
-        dict con índices de 2024 y 2026 y sus deltas
-
-    Raises:
-        ValueError: Si no hay imágenes disponibles
     """
     tipo_geo = geometria.type().getInfo()
     region = geometria.buffer(1000) if tipo_geo == 'Point' else geometria
 
-    # Calcular índices para ambos períodos
     stats = {}
     for indice, func in [('ndvi', _get_ndvi), ('evi', _get_evi), ('nbr', _get_nbr)]:
         img_24 = func(region, '2024-01-01', '2024-01-31')
@@ -67,7 +56,7 @@ def analizar_salud_vegetal(geometria: ee.Geometry, nombre_sitio: str) -> dict:
         val_26 = img_26.reduceRegion(ee.Reducer.mean(), region, 10).get(indice).getInfo()
 
         if not val_24 or not val_26:
-            raise ValueError(f"Datos insuficientes para {nombre_sitio} — índice {indice}")
+            raise ValueError(f"Datos insuficientes para {nombre_sitio} - indice {indice}")
 
         stats[indice] = {
             "2024": round(val_24, 3),
@@ -75,5 +64,16 @@ def analizar_salud_vegetal(geometria: ee.Geometry, nombre_sitio: str) -> dict:
             "delta": round(val_26 - val_24, 3)
         }
 
-    logger.info("Análisis completado para %s", nombre_sitio)
+    logger.info("Analisis completado para %s", nombre_sitio)
     return {"sitio": nombre_sitio, "indices": stats}
+
+
+def analizar_poligono(vertices: list, nombre_sitio: str) -> dict:
+    """
+    Analiza salud vegetal de un poligono definido por vertices.
+    """
+    if len(vertices) < 3:
+        raise ValueError("Un poligono necesita minimo 3 vertices")
+
+    geometria = ee.Geometry.Polygon([vertices]).simplify(maxError=10)
+    return analizar_salud_vegetal(geometria, nombre_sitio)

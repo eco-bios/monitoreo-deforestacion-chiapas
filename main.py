@@ -30,11 +30,15 @@ class SitioRequest(BaseModel):
     lat: float
     lon: float
     nombre: str = "Sitio personalizado"
+    anio_base: int = 2024
+    anio_actual: int = 2026
 
 
 class PoligonoRequest(BaseModel):
     vertices: list
-    nombre: str = "Polígono personalizado"
+    nombre: str = "Poligono personalizado"
+    anio_base: int = 2024
+    anio_actual: int = 2026
 
 
 @app.on_event("startup")
@@ -67,7 +71,7 @@ def analizar(sitio: SitioRequest):
     """
     try:
         geometria = ee.Geometry.Point([sitio.lon, sitio.lat])
-        resultado = analizar_salud_vegetal(geometria, sitio.nombre)
+        resultado = analizar_salud_vegetal(geometria, sitio.nombre, sitio.anio_base, sitio.anio_actual)
         return resultado
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -88,7 +92,7 @@ def analizar_por_poligono(request: PoligonoRequest):
     [[-91.72, 17.72], [-91.71, 17.72], [-91.71, 17.73], [-91.72, 17.73]]
     """
     try:
-        resultado = analizar_poligono(request.vertices, request.nombre)
+        resultado = analizar_poligono(request.vertices, request.nombre, request.anio_base, request.anio_actual)
         return resultado
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

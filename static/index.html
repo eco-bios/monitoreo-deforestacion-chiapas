@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoreo Forestal Chiapas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -17,149 +19,139 @@
             background: #0a1628;
             color: #e0e0e0;
             min-height: 100vh;
-            padding: 20px;
         }
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
+        .header {
+            background: #1e2d45;
+            padding: 16px 20px;
+            border-bottom: 1px solid #2d3f5a;
         }
 
-        h1 {
+        .header h1 {
             color: #4ade80;
-            font-size: 1.4rem;
-            margin-bottom: 6px;
+            font-size: 1.2rem;
         }
 
-        .subtitle {
+        .header p {
             color: #94a3b8;
-            font-size: 0.9rem;
-            margin-bottom: 24px;
+            font-size: 0.8rem;
+            margin-top: 2px;
+        }
+
+        .layout {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .panel-left {
+            width: 380px;
+            min-width: 320px;
+            overflow-y: auto;
+            padding: 16px;
+            background: #0a1628;
+        }
+
+        .panel-right {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
         }
 
         .card {
             background: #1e2d45;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
         }
 
         label {
             display: block;
             color: #94a3b8;
-            font-size: 0.85rem;
-            margin-bottom: 6px;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            margin-top: 10px;
         }
 
-        input {
+        label:first-child {
+            margin-top: 0;
+        }
+
+        input,
+        select {
             width: 100%;
             background: #0a1628;
             border: 1px solid #2d3f5a;
-            border-radius: 8px;
-            padding: 10px 14px;
+            border-radius: 6px;
+            padding: 8px 12px;
             color: #e0e0e0;
-            font-size: 1rem;
-            margin-bottom: 14px;
+            font-size: 0.95rem;
         }
 
-        input:focus {
+        input:focus,
+        select:focus {
             outline: none;
             border-color: #4ade80;
         }
 
-        button {
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .row>div {
+            flex: 1;
+        }
+
+        button.primary {
             width: 100%;
             background: #4ade80;
             color: #0a1628;
             border: none;
             border-radius: 8px;
-            padding: 14px;
-            font-size: 1rem;
+            padding: 12px;
+            font-size: 0.95rem;
             font-weight: 700;
             cursor: pointer;
+            margin-top: 12px;
         }
 
-        button:disabled {
+        button.primary:disabled {
             background: #2d3f5a;
             color: #94a3b8;
             cursor: not-allowed;
         }
 
-        .resultado {
-            display: none;
-        }
-
-        .indice-card {
-            background: #0a1628;
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 10px;
-        }
-
-        .indice-nombre {
-            font-size: 0.8rem;
-            color: #94a3b8;
-            margin-bottom: 4px;
-        }
-
-        .indice-valor {
-            font-size: 1.3rem;
-            font-weight: 700;
+        button.secondary {
+            width: 100%;
+            background: transparent;
+            border: 1px dashed #4ade80;
             color: #4ade80;
-        }
-
-        .indice-delta {
+            border-radius: 8px;
+            padding: 8px;
             font-size: 0.85rem;
-            margin-top: 4px;
-        }
-
-        .positivo {
-            color: #4ade80;
-        }
-
-        .negativo {
-            color: #f87171;
-        }
-
-        .interpretacion {
-            background: #0a1628;
-            border-radius: 8px;
-            padding: 14px;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-
-        .error {
-            background: #2d1b1b;
-            border: 1px solid #f87171;
-            border-radius: 8px;
-            padding: 14px;
-            color: #f87171;
-            display: none;
-        }
-
-        .loading {
-            text-align: center;
-            color: #94a3b8;
-            padding: 20px;
-            display: none;
+            cursor: pointer;
+            margin-top: 8px;
         }
 
         .tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
+            gap: 6px;
+            margin-bottom: 12px;
         }
 
         .tab {
             flex: 1;
             background: #1e2d45;
             border: none;
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 6px;
+            padding: 8px;
             color: #94a3b8;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
         }
 
         .tab.active {
@@ -176,74 +168,277 @@
             display: block;
         }
 
+        .resultado {
+            display: none;
+        }
+
+        .sitio-titulo {
+            color: #4ade80;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .indice-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .indice-card {
+            background: #0a1628;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .indice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .indice-nombre {
+            font-size: 0.78rem;
+            color: #94a3b8;
+        }
+
+        .indice-valor {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #4ade80;
+        }
+
+        .indice-comparativa {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 0.78rem;
+        }
+
+        .año-label {
+            color: #94a3b8;
+        }
+
+        .año-valor {
+            color: #e0e0e0;
+            font-weight: 600;
+        }
+
+        .tendencia {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .positivo {
+            color: #4ade80;
+        }
+
+        .negativo {
+            color: #f87171;
+        }
+
+        .neutro {
+            color: #fbbf24;
+        }
+
+        .barra-cambio {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 6px;
+            background: #2d3f5a;
+        }
+
+        .barra-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s;
+        }
+
+        .interpretacion {
+            background: #0a1628;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .loading {
+            text-align: center;
+            color: #94a3b8;
+            padding: 16px;
+            display: none;
+            font-size: 0.88rem;
+        }
+
+        .error {
+            background: #2d1b1b;
+            border: 1px solid #f87171;
+            border-radius: 8px;
+            padding: 12px;
+            color: #f87171;
+            display: none;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
         .vertice-row {
             display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
+            gap: 6px;
+            margin-bottom: 6px;
         }
 
         .vertice-row input {
-            margin-bottom: 0;
+            margin: 0;
         }
 
-        .btn-agregar {
-            background: transparent;
-            border: 1px dashed #4ade80;
-            color: #4ade80;
-            margin-bottom: 14px;
+        .años-selector {
+            display: flex;
+            gap: 8px;
+        }
+
+        .años-selector>div {
+            flex: 1;
+        }
+
+        @media (max-width: 700px) {
+            .layout {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .panel-left {
+                width: 100%;
+            }
+
+            .panel-right {
+                height: 300px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
+    <div class="header">
         <h1>🛰️ Monitoreo Forestal Chiapas</h1>
-        <p class="subtitle">Análisis de salud vegetal con imágenes satelitales Sentinel-2</p>
+        <p>Análisis de salud vegetal con imágenes satelitales Sentinel-2</p>
+    </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('punto')">📍 Por Punto</button>
-            <button class="tab" onclick="switchTab('poligono')">🔷 Por Polígono</button>
-        </div>
+    <div class="layout">
+        <div class="panel-left">
 
-        <!-- Panel Punto -->
-        <div class="panel active" id="panel-punto">
-            <div class="card">
-                <label>Nombre del sitio</label>
-                <input type="text" id="nombre" placeholder="Ej: Mi parcela" value="Mi sitio">
-                <label>Latitud</label>
-                <input type="number" id="lat" placeholder="Ej: 16.8" step="any">
-                <label>Longitud</label>
-                <input type="number" id="lon" placeholder="Ej: -91.5" step="any">
-                <button id="btn-punto" onclick="analizarPunto()">Analizar</button>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('punto', event)">📍 Punto</button>
+                <button class="tab" onclick="switchTab('poligono', event)">🔷 Polígono</button>
             </div>
-        </div>
 
-        <!-- Panel Polígono -->
-        <div class="panel" id="panel-poligono">
-            <div class="card">
-                <label>Nombre del sitio</label>
-                <input type="text" id="nombre-pol" placeholder="Ej: Mi parcela" value="Mi polígono">
-                <label>Vértices del polígono</label>
-                <div id="vertices"></div>
-                <button class="btn-agregar" onclick="agregarVertice()">+ Agregar vértice</button>
-                <button id="btn-poligono" onclick="analizarPoligono()">Analizar</button>
+            <!-- Panel Punto -->
+            <div class="panel active" id="panel-punto">
+                <div class="card">
+                    <label>Nombre del sitio</label>
+                    <input type="text" id="nombre" value="Mi sitio">
+                    <label>Latitud</label>
+                    <input type="number" id="lat" placeholder="Ej: 16.8" step="any">
+                    <label>Longitud</label>
+                    <input type="number" id="lon" placeholder="Ej: -91.5" step="any">
+                    <div class="años-selector" style="margin-top:10px;">
+                        <div>
+                            <label>Año base</label>
+                            <select id="anio_base">
+                                <option value="2017">2017</option>
+                                <option value="2018">2018</option>
+                                <option value="2019">2019</option>
+                                <option value="2020">2020</option>
+                                <option value="2021">2021</option>
+                                <option value="2022">2022</option>
+                                <option value="2023">2023</option>
+                                <option value="2024" selected>2024</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Año actual</label>
+                            <select id="anio_actual">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="primary" id="btn-punto" onclick="analizarPunto()">🔍 Analizar</button>
+                </div>
             </div>
+
+            <!-- Panel Polígono -->
+            <div class="panel" id="panel-poligono">
+                <div class="card">
+                    <label>Nombre del sitio</label>
+                    <input type="text" id="nombre-pol" value="Mi polígono">
+                    <label>Vértices (Longitud, Latitud)</label>
+                    <div id="vertices"></div>
+                    <button class="secondary" onclick="agregarVertice()">+ Agregar vértice</button>
+                    <div class="años-selector" style="margin-top:10px;">
+                        <div>
+                            <label>Año base</label>
+                            <select id="anio_base_pol">
+                                <option value="2017">2017</option>
+                                <option value="2018">2018</option>
+                                <option value="2019">2019</option>
+                                <option value="2020">2020</option>
+                                <option value="2021">2021</option>
+                                <option value="2022">2022</option>
+                                <option value="2023">2023</option>
+                                <option value="2024" selected>2024</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Año actual</label>
+                            <select id="anio_actual_pol">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="primary" id="btn-poligono" onclick="analizarPoligono()">🔍 Analizar</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">⏳ Consultando imágenes satelitales...<br><small>Esto tarda 30-60
+                    segundos</small></div>
+            <div class="error" id="error"></div>
+
+            <!-- Resultado -->
+            <div class="resultado card" id="resultado">
+                <div class="sitio-titulo" id="sitio-nombre"></div>
+                <div class="indice-grid" id="indices"></div>
+                <div class="interpretacion" id="interpretacion"></div>
+            </div>
+
         </div>
 
-        <div class="loading" id="loading">⏳ Analizando imágenes satelitales... (30-60 seg)</div>
-        <div class="error" id="error"></div>
-
-        <div class="resultado card" id="resultado">
-            <h2 id="sitio-nombre" style="color:#4ade80; margin-bottom:16px;"></h2>
-            <div id="indices"></div>
-            <div class="interpretacion" id="interpretacion"></div>
+        <div class="panel-right">
+            <div id="map"></div>
         </div>
     </div>
 
     <script>
         const API = 'https://monitoreo-chiapas-306961522035.us-central1.run.app';
 
-        function switchTab(tab) {
+        // Inicializar mapa
+        const map = L.map('map').setView([16.5, -92.0], 8);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri World Imagery'
+        }).addTo(map);
+
+        let capaActual = null;
+
+        function switchTab(tab, event) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             event.target.classList.add('active');
@@ -252,50 +447,99 @@
 
         function agregarVertice() {
             const div = document.getElementById('vertices');
+            const idx = div.children.length + 1;
             const row = document.createElement('div');
             row.className = 'vertice-row';
             row.innerHTML = `
-        <input type="number" placeholder="Lon" step="any">
-        <input type="number" placeholder="Lat" step="any">
+        <input type="number" placeholder="Lon ${idx}" step="any">
+        <input type="number" placeholder="Lat ${idx}" step="any">
     `;
             div.appendChild(row);
         }
 
-        function interpretacion(indices) {
+        function mostrarEnMapa(lat, lon, radio) {
+            if (capaActual) map.removeLayer(capaActual);
+            capaActual = L.circle([lat, lon], {
+                color: '#4ade80',
+                fillColor: '#4ade80',
+                fillOpacity: 0.15,
+                radius: radio || 1000,
+                weight: 2
+            }).addTo(map);
+            map.setView([lat, lon], 13);
+        }
+
+        function mostrarPoligonoEnMapa(vertices) {
+            if (capaActual) map.removeLayer(capaActual);
+            const latlngs = vertices.map(v => [v[1], v[0]]);
+            capaActual = L.polygon(latlngs, {
+                color: '#4ade80',
+                fillColor: '#4ade80',
+                fillOpacity: 0.15,
+                weight: 2
+            }).addTo(map);
+            map.fitBounds(capaActual.getBounds(), { padding: [40, 40] });
+        }
+
+        function interpretacion(indices, anioBase, anioActual) {
             const ndviDelta = indices.ndvi.delta;
             const nbrDelta = indices.nbr.delta;
             let texto = '';
 
-            if (ndviDelta > 0.05) texto += '🌿 La vegetación mejoró significativamente. ';
-            else if (ndviDelta > 0) texto += '🌱 La vegetación se mantiene estable con ligera mejora. ';
-            else if (ndviDelta > -0.05) texto += '⚠️ La vegetación muestra leve degradación. ';
-            else texto += '🚨 Se detecta degradación severa de la vegetación. ';
+            if (ndviDelta > 0.1) texto += `🌿 La vegetación mejoró significativamente entre ${anioBase} y ${anioActual}. `;
+            else if (ndviDelta > 0.02) texto += `🌱 La vegetación muestra una mejora moderada entre ${anioBase} y ${anioActual}. `;
+            else if (ndviDelta > -0.02) texto += `➡️ La vegetación se mantiene estable entre ${anioBase} y ${anioActual}. `;
+            else if (ndviDelta > -0.1) texto += `⚠️ Se detecta degradación leve de la vegetación entre ${anioBase} y ${anioActual}. `;
+            else texto += `🚨 Se detecta degradación severa de la vegetación entre ${anioBase} y ${anioActual}. `;
 
-            if (nbrDelta < -0.1) texto += '🔥 Posible actividad de incendio reciente detectada.';
+            if (nbrDelta < -0.15) texto += '🔥 Posible actividad de incendio reciente detectada.';
             else if (nbrDelta > 0.05) texto += '✅ Sin evidencia de incendios recientes.';
+            else texto += '🔍 Condición post-incendio estable.';
 
             return texto;
         }
 
         function mostrarResultado(data) {
-            document.getElementById('sitio-nombre').textContent = '📍 ' + data.sitio;
-            const indices = data.indices;
-            let html = '';
-            const nombres = { ndvi: 'NDVI — Salud vegetal', evi: 'EVI — Vegetación densa', nbr: 'NBR — Riesgo de incendio' };
+            const anioBase = data.anio_base;
+            const anioActual = data.anio_actual;
+            document.getElementById('sitio-nombre').textContent = '📍 ' + data.sitio + ` (${anioBase} → ${anioActual})`;
 
-            for (const [key, val] of Object.entries(indices)) {
-                const deltaClass = val.delta >= 0 ? 'positivo' : 'negativo';
-                const deltaIcon = val.delta >= 0 ? '▲' : '▼';
+            const nombres = {
+                ndvi: 'NDVI — Salud vegetal general',
+                evi: 'EVI — Densidad de vegetación',
+                nbr: 'NBR — Estado post-incendio'
+            };
+
+            const descripciones = {
+                ndvi: { bajo: 'Vegetación escasa', medio: 'Vegetación moderada', alto: 'Vegetación densa' },
+                evi: { bajo: 'Baja densidad', medio: 'Densidad media', alto: 'Alta densidad' },
+                nbr: { bajo: 'Área quemada', medio: 'Recuperación', alto: 'Bosque sano' }
+            };
+
+            let html = '';
+            for (const [key, val] of Object.entries(data.indices)) {
+                const delta = val.delta;
+                const deltaClass = delta > 0.02 ? 'positivo' : delta < -0.02 ? 'negativo' : 'neutro';
+                const deltaIcon = delta > 0.02 ? '▲' : delta < -0.02 ? '▼' : '→';
+                const deltaTexto = delta > 0 ? `+${delta.toFixed(3)}` : delta.toFixed(3);
+                const pct = Math.min(Math.abs(delta) / 0.3 * 100, 100);
+                const barColor = deltaClass === 'positivo' ? '#4ade80' : deltaClass === 'negativo' ? '#f87171' : '#fbbf24';
+
                 html += `
         <div class="indice-card">
             <div class="indice-nombre">${nombres[key]}</div>
-            <div class="indice-valor">${val['2026'].toFixed(3)}</div>
-            <div class="indice-delta ${deltaClass}">${deltaIcon} ${Math.abs(val.delta).toFixed(3)} vs 2024</div>
+            <div class="indice-valor">${val[String(anioActual)].toFixed(3)}</div>
+            <div class="indice-comparativa">
+                <span><span class="año-label">${anioBase}: </span><span class="año-valor">${val[String(anioBase)].toFixed(3)}</span></span>
+                <span><span class="año-label">${anioActual}: </span><span class="año-valor">${val[String(anioActual)].toFixed(3)}</span></span>
+            </div>
+            <div class="tendencia ${deltaClass}">${deltaIcon} Cambio: ${deltaTexto} (${delta > 0 ? 'mejora' : delta < 0 ? 'deterioro' : 'estable'})</div>
+            <div class="barra-cambio"><div class="barra-fill" style="width:${pct}%; background:${barColor}"></div></div>
         </div>`;
             }
 
             document.getElementById('indices').innerHTML = html;
-            document.getElementById('interpretacion').textContent = interpretacion(indices);
+            document.getElementById('interpretacion').textContent = interpretacion(data.indices, anioBase, anioActual);
             document.getElementById('resultado').style.display = 'block';
         }
 
@@ -303,15 +547,20 @@
             const nombre = document.getElementById('nombre').value;
             const lat = parseFloat(document.getElementById('lat').value);
             const lon = parseFloat(document.getElementById('lon').value);
+            const anio_base = parseInt(document.getElementById('anio_base').value);
+            const anio_actual = parseInt(document.getElementById('anio_actual').value);
 
             if (!lat || !lon) { mostrarError('Ingresa latitud y longitud'); return; }
+            if (anio_base >= anio_actual) { mostrarError('El año base debe ser menor al año actual'); return; }
 
+            mostrarEnMapa(lat, lon, 1000);
             iniciarCarga('btn-punto');
+
             try {
                 const res = await fetch(API + '/analizar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lat, lon, nombre })
+                    body: JSON.stringify({ lat, lon, nombre, anio_base, anio_actual })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail);
@@ -319,12 +568,14 @@
             } catch (e) {
                 mostrarError('Error: ' + e.message);
             } finally {
-                terminarCarga('btn-punto', 'Analizar');
+                terminarCarga('btn-punto', '🔍 Analizar');
             }
         }
 
         async function analizarPoligono() {
             const nombre = document.getElementById('nombre-pol').value;
+            const anio_base = parseInt(document.getElementById('anio_base_pol').value);
+            const anio_actual = parseInt(document.getElementById('anio_actual_pol').value);
             const rows = document.querySelectorAll('#vertices .vertice-row');
             const vertices = [];
 
@@ -336,13 +587,16 @@
             });
 
             if (vertices.length < 3) { mostrarError('Ingresa al menos 3 vértices'); return; }
+            if (anio_base >= anio_actual) { mostrarError('El año base debe ser menor al año actual'); return; }
 
+            mostrarPoligonoEnMapa(vertices);
             iniciarCarga('btn-poligono');
+
             try {
                 const res = await fetch(API + '/analizar/poligono', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vertices, nombre })
+                    body: JSON.stringify({ vertices, nombre, anio_base, anio_actual })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail);
@@ -350,13 +604,13 @@
             } catch (e) {
                 mostrarError('Error: ' + e.message);
             } finally {
-                terminarCarga('btn-poligono', 'Analizar');
+                terminarCarga('btn-poligono', '🔍 Analizar');
             }
         }
 
         function iniciarCarga(btnId) {
             document.getElementById(btnId).disabled = true;
-            document.getElementById(btnId).textContent = 'Analizando...';
+            document.getElementById(btnId).textContent = '⏳ Analizando...';
             document.getElementById('loading').style.display = 'block';
             document.getElementById('error').style.display = 'none';
             document.getElementById('resultado').style.display = 'none';
@@ -374,7 +628,6 @@
             el.style.display = 'block';
         }
 
-        // Inicializar con 4 vértices
         for (let i = 0; i < 4; i++) agregarVertice();
     </script>
 </body>

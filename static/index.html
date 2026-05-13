@@ -507,21 +507,45 @@
             const nombres = {
                 ndvi: 'NDVI — Salud vegetal general',
                 evi: 'EVI — Densidad de vegetación',
-                nbr: 'NBR — Estado post-incendio'
+                nbr: 'NBR — Estado post-incendio',
+                ndwi: 'NDWI — Contenido de agua en vegetación',
+                bsi: 'BSI — Suelo desnudo / Deforestación'
             };
 
-            const descripciones = {
-                ndvi: { bajo: 'Vegetación escasa', medio: 'Vegetación moderada', alto: 'Vegetación densa' },
-                evi: { bajo: 'Baja densidad', medio: 'Densidad media', alto: 'Alta densidad' },
-                nbr: { bajo: 'Área quemada', medio: 'Recuperación', alto: 'Bosque sano' }
+            const explicaciones = {
+                ndvi: { pos: 'Más vegetación', neg: 'Menos vegetación', neu: 'Sin cambio' },
+                evi: { pos: 'Mayor densidad forestal', neg: 'Menor densidad forestal', neu: 'Sin cambio' },
+                nbr: { pos: 'Bosque más sano', neg: 'Posible quema o perturbación', neu: 'Sin cambio' },
+                ndwi: { pos: 'Más agua en vegetación — indica bosque maduro', neg: 'Menos agua — posible conversión a pasto', neu: 'Sin cambio' },
+                bsi: { pos: 'Más suelo expuesto — alerta de deforestación', neg: 'Menos suelo expuesto — recuperación', neu: 'Sin cambio' }
             };
 
-            let html = '';
+            // Clasificación
+            const clasBase = data.clasificacion[String(anioBase)];
+            const clasActual = data.clasificacion[String(anioActual)];
+            let htmlClas = `
+        <div style="margin-bottom:12px; background:#0a1628; border-radius:8px; padding:12px;">
+            <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">🌿 Tipo de cobertura vegetal</div>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+                <span><span style="color:#94a3b8">${anioBase}: </span><strong>${clasBase}</strong></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-top:4px;">
+                <span><span style="color:#94a3b8">${anioActual}: </span><strong style="color:#4ade80">${clasActual}</strong></span>
+            </div>
+            ${clasBase !== clasActual ? `<div style="margin-top:8px; font-size:0.82rem; color:#fbbf24;">⚠️ El tipo de cobertura cambió entre ${anioBase} y ${anioActual}</div>` : ''}
+        </div>`;
+
+            let html = htmlClas;
+
             for (const [key, val] of Object.entries(data.indices)) {
                 const delta = val.delta;
-                const deltaClass = delta > 0.02 ? 'positivo' : delta < -0.02 ? 'negativo' : 'neutro';
-                const deltaIcon = delta > 0.02 ? '▲' : delta < -0.02 ? '▼' : '→';
+                // Para BSI el delta positivo es malo (más suelo desnudo)
+                const esBSI = key === 'bsi';
+                const deltaClass = Math.abs(delta) < 0.02 ? 'neutro' : (esBSI ? (delta > 0 ? 'negativo' : 'positivo') : (delta > 0 ? 'positivo' : 'negativo'));
+                const deltaIcon = Math.abs(delta) < 0.02 ? '→' : delta > 0 ? '▲' : '▼';
                 const deltaTexto = delta > 0 ? `+${delta.toFixed(3)}` : delta.toFixed(3);
+                const exp = explicaciones[key];
+                const expTexto = Math.abs(delta) < 0.02 ? exp.neu : (esBSI ? (delta > 0 ? exp.pos : exp.neg) : (delta > 0 ? exp.pos : exp.neg));
                 const pct = Math.min(Math.abs(delta) / 0.3 * 100, 100);
                 const barColor = deltaClass === 'positivo' ? '#4ade80' : deltaClass === 'negativo' ? '#f87171' : '#fbbf24';
 
@@ -533,7 +557,7 @@
                 <span><span class="año-label">${anioBase}: </span><span class="año-valor">${val[String(anioBase)].toFixed(3)}</span></span>
                 <span><span class="año-label">${anioActual}: </span><span class="año-valor">${val[String(anioActual)].toFixed(3)}</span></span>
             </div>
-            <div class="tendencia ${deltaClass}">${deltaIcon} Cambio: ${deltaTexto} (${delta > 0 ? 'mejora' : delta < 0 ? 'deterioro' : 'estable'})</div>
+            <div class="tendencia ${deltaClass}">${deltaIcon} ${deltaTexto} — ${expTexto}</div>
             <div class="barra-cambio"><div class="barra-fill" style="width:${pct}%; background:${barColor}"></div></div>
         </div>`;
             }

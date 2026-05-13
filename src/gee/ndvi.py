@@ -5,20 +5,12 @@ logger = logging.getLogger(__name__)
 
 
 def _mask_clouds(image: ee.Image) -> ee.Image:
-    """
-    Aplica cloud-masking a nivel de pixel usando la banda SCL de Sentinel-2.
-    Clases enmascaradas: 3=sombra, 8=nube media, 9=nube alta, 10=cirrus
-    """
     scl = image.select('SCL')
-    mask = (scl.neq(3)
-              .And(scl.neq(8))
-              .And(scl.neq(9))
-              .And(scl.neq(10)))
+    mask = (scl.neq(3).And(scl.neq(8)).And(scl.neq(9)).And(scl.neq(10)))
     return image.updateMask(mask)
 
 
 def _get_coleccion(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee.Image:
-    """Obtiene mosaico Sentinel-2 con cloud-masking por pixel."""
     return (ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(region)
         .filterDate(fecha_inicio, fecha_fin)
@@ -28,28 +20,15 @@ def _get_coleccion(region: ee.Geometry, fecha_inicio: str, fecha_fin: str) -> ee
 
 
 def _calcular_indices(mosaico: ee.Image, region: ee.Geometry) -> dict:
-    """
-    Calcula todos los indices espectrales de un mosaico.
-    Retorna dict con valores medios por zona.
-    """
-    # NDVI — Salud vegetal general
     ndvi = mosaico.normalizedDifference(['B8', 'B4']).rename('ndvi')
-
-    # EVI — Vegetacion densa, no se satura en selva
     evi = mosaico.expression(
         '2.5 * ((NIR - RED) / (NIR + 6 * RED - 7.5 * BLUE + 1))',
         {'NIR': mosaico.select('B8'),
          'RED': mosaico.select('B4'),
          'BLUE': mosaico.select('B2')}
     ).rename('evi')
-
-    # NBR — Estado post-incendio
     nbr = mosaico.normalizedDifference(['B8', 'B12']).rename('nbr')
-
-    # NDWI — Contenido de agua en vegetacion (selva madura vs pasto)
     ndwi = mosaico.normalizedDifference(['B3', 'B8']).rename('ndwi')
-
-    # BSI — Indice de suelo desnudo (detecta deforestacion)
     bsi = mosaico.expression(
         '((SWIR + RED) - (NIR + BLUE)) / ((SWIR + RED) + (NIR + BLUE))',
         {'SWIR': mosaico.select('B11'),
@@ -59,7 +38,6 @@ def _calcular_indices(mosaico: ee.Image, region: ee.Geometry) -> dict:
     ).rename('bsi')
 
     imagen_indices = ndvi.addBands(evi).addBands(nbr).addBands(ndwi).addBands(bsi)
-
     stats = imagen_indices.reduceRegion(
         reducer=ee.Reducer.mean(),
         geometry=region,
@@ -76,15 +54,6 @@ def _calcular_indices(mosaico: ee.Image, region: ee.Geometry) -> dict:
 
 
 def _clasificar_vegetacion(indices: dict) -> str:
-    """
-    Clasifica el tipo de cobertura vegetal basado en combinacion de indices.
-
-    Logica:
-    - Selva/bosque maduro: NDVI alto + NDWI alto + BSI bajo
-    - Pasto/cultivo:       NDVI medio + NDWI bajo + BSI medio
-    - Suelo desnudo:       NDVI bajo  + BSI alto
-    - Area quemada:        NBR bajo   + BSI alto
-    """
     ndvi = indices['ndvi']
     ndwi = indices['ndwi']
     bsi  = indices['bsi']
@@ -105,20 +74,11 @@ def _clasificar_vegetacion(indices: dict) -> str:
 
 
 def analizar_salud_vegetal(geometria: ee.Geometry, nombre_sitio: str, anio_base: int = 2024, anio_actual: int = 2026) -> dict:
-    """
-    Analiza todos los indices espectrales comparando dos años.
-    Incluye clasificacion de tipo de vegetacion.
-    """
     tipo_geo = geometria.type().getInfo()
     region = geometria.buffer(1000) if tipo_geo == 'Point' else geometria
 
-    fecha_base_ini = f'{anio_base}-01-01'
-    fecha_base_fin = f'{anio_base}-03-31'
-    fecha_actual_ini = f'{anio_actual}-01-01'
-    fecha_actual_fin = f'{anio_actual}-03-31'
-
-    mosaico_base   = _get_coleccion(region, fecha_base_ini, fecha_base_fin)
-    mosaico_actual = _get_coleccion(region, fecha_actual_ini, fecha_actual_fin)
+    mosaico_base   = _get_coleccion(region, f'{anio_base}-01-01', f'{anio_base}-03-31')
+    mosaico_actual = _get_coleccion(region, f'{anio_actual}-01-01', f'{anio_actual}-03-31')
 
     indices_base   = _calcular_indices(mosaico_base, region)
     indices_actual = _calcular_indices(mosaico_actual, region)
@@ -131,27 +91,61 @@ def analizar_salud_vegetal(geometria: ee.Geometry, nombre_sitio: str, anio_base:
             'delta': round(indices_actual[key] - indices_base[key], 3)
         }
 
-    clasificacion_base   = _clasificar_vegetacion(indices_base)
-    clasificacion_actual = _clasificar_vegetacion(indices_actual)
-
-    logger.info("Analisis completado: %s (%s vs %s)", nombre_sitio, anio_base, anio_actual)
-
     return {
         "sitio": nombre_sitio,
         "anio_base": anio_base,
         "anio_actual": anio_actual,
         "indices": indices,
         "clasificacion": {
-            str(anio_base):   clasificacion_base,
-            str(anio_actual): clasificacion_actual
+            str(anio_base):   _clasificar_vegetacion(indices_base),
+            str(anio_actual): _clasificar_vegetacion(indices_actual)
         }
     }
 
 
 def analizar_poligono(vertices: list, nombre_sitio: str, anio_base: int = 2024, anio_actual: int = 2026) -> dict:
-    """Analiza salud vegetal de un poligono definido por vertices."""
     if len(vertices) < 3:
         raise ValueError("Un poligono necesita minimo 3 vertices")
-
     geometria = ee.Geometry.Polygon([vertices]).simplify(maxError=10)
     return analizar_salud_vegetal(geometria, nombre_sitio, anio_base, anio_actual)
+
+
+def serie_temporal(geometria: ee.Geometry, nombre_sitio: str, anio_inicio: int = 2017, anio_fin: int = 2026) -> dict:
+    tipo_geo = geometria.type().getInfo()
+    region = geometria.buffer(1000) if tipo_geo == 'Point' else geometria
+
+    anos = list(range(anio_inicio, anio_fin + 1))
+    serie = {indice: [] for indice in ['ndvi', 'evi', 'nbr', 'ndwi', 'bsi']}
+    clasificaciones = []
+
+    for anio in anos:
+        try:
+            mosaico = _get_coleccion(region, f'{anio}-01-01', f'{anio}-03-31')
+            indices = _calcular_indices(mosaico, region)
+            clasificacion = _clasificar_vegetacion(indices)
+
+            for key in serie:
+                serie[key].append({"anio": anio, "valor": indices[key]})
+            clasificaciones.append({"anio": anio, "clasificacion": clasificacion})
+            logger.info("Serie temporal: %s año %s completado", nombre_sitio, anio)
+
+        except Exception as e:
+            logger.warning("Sin datos para %s año %s: %s", nombre_sitio, anio, str(e))
+            for key in serie:
+                serie[key].append({"anio": anio, "valor": None})
+            clasificaciones.append({"anio": anio, "clasificacion": "Sin datos"})
+
+    return {
+        "sitio": nombre_sitio,
+        "anio_inicio": anio_inicio,
+        "anio_fin": anio_fin,
+        "serie": serie,
+        "clasificaciones": clasificaciones
+    }
+
+
+def serie_temporal_poligono(vertices: list, nombre_sitio: str, anio_inicio: int = 2017, anio_fin: int = 2026) -> dict:
+    if len(vertices) < 3:
+        raise ValueError("Un poligono necesita minimo 3 vertices")
+    geometria = ee.Geometry.Polygon([vertices]).simplify(maxError=10)
+    return serie_temporal(geometria, nombre_sitio, anio_inicio, anio_fin)

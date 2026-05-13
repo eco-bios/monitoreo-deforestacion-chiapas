@@ -1,11 +1,11 @@
 import ee
 import logging
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from src.gee.client import initialize_gee
-from src.gee.ndvi import analizar_salud_vegetal, analizar_poligono
+from src.gee.ndvi import analizar_salud_vegetal, analizar_poligono, serie_temporal, serie_temporal_poligono
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,7 +14,8 @@ app = FastAPI(
     title="Monitoreo de Deforestación Chiapas",
     description="API para análisis de salud vegetal usando NDVI, EVI y NBR",
     version="1.0.0"
-) 
+)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 ZONAS = [
@@ -41,6 +42,21 @@ class PoligonoRequest(BaseModel):
     anio_actual: int = 2026
 
 
+class SerieTemporalRequest(BaseModel):
+    lat: float
+    lon: float
+    nombre: str = "Sitio personalizado"
+    anio_inicio: int = 2017
+    anio_fin: int = 2026
+
+
+class SerieTemporalPoligonoRequest(BaseModel):
+    vertices: list
+    nombre: str = "Poligono personalizado"
+    anio_inicio: int = 2017
+    anio_fin: int = 2026
+
+
 @app.on_event("startup")
 def startup():
     try:
@@ -54,6 +70,7 @@ def startup():
 def root():
     return FileResponse("static/index.html")
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -66,9 +83,7 @@ def listar_zonas():
 
 @app.post("/analizar")
 def analizar(sitio: SitioRequest):
-    """
-    Analiza la salud vegetal de cualquier punto.
-    """
+    """Analiza la salud vegetal de cualquier punto."""
     try:
         geometria = ee.Geometry.Point([sitio.lon, sitio.lat])
         resultado = analizar_salud_vegetal(geometria, sitio.nombre, sitio.anio_base, sitio.anio_actual)
@@ -76,39 +91,58 @@ def analizar(sitio: SitioRequest):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error("Error en análisis: %s", str(e))
+        logger.error("Error en analisis: %s", str(e))
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
 @app.post("/analizar/poligono")
 def analizar_por_poligono(request: PoligonoRequest):
-    """
-    Analiza salud vegetal de un polígono definido por vértices.
-
-    - **vertices**: Lista de pares [lon, lat]
-    - **nombre**: Nombre descriptivo del sitio
-
-    Ejemplo de vertices:
-    [[-91.72, 17.72], [-91.71, 17.72], [-91.71, 17.73], [-91.72, 17.73]]
-    """
+    """Analiza salud vegetal de un poligono definido por vertices."""
     try:
         resultado = analizar_poligono(request.vertices, request.nombre, request.anio_base, request.anio_actual)
         return resultado
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error("Error en análisis de polígono: %s", str(e))
+        logger.error("Error en analisis de poligono: %s", str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@app.post("/analizar/serie-temporal")
+def analizar_serie_temporal(request: SerieTemporalRequest):
+    """
+    Analiza la serie temporal año por año.
+    Detecta incendios, deforestacion y recuperacion en el tiempo.
+    """
+    try:
+        geometria = ee.Geometry.Point([request.lon, request.lat])
+        resultado = serie_temporal(geometria, request.nombre, request.anio_inicio, request.anio_fin)
+        return resultado
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Error en serie temporal: %s", str(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@app.post("/analizar/serie-temporal/poligono")
+def analizar_serie_temporal_poligono(request: SerieTemporalPoligonoRequest):
+    """Serie temporal para un poligono definido por vertices."""
+    try:
+        resultado = serie_temporal_poligono(request.vertices, request.nombre, request.anio_inicio, request.anio_fin)
+        return resultado
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Error en serie temporal poligono: %s", str(e))
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
 @app.post("/scheduler/analizar-zona")
 def analizar_zona_programada(zona_index: int = 0):
-    """
-    Endpoint para Cloud Scheduler — analiza una zona predefinida.
-    zona_index: 0-4 según la lista de ZONAS
-    """
+    """Endpoint para Cloud Scheduler — analiza una zona predefinida."""
     if zona_index < 0 or zona_index >= len(ZONAS):
-        raise HTTPException(status_code=400, detail="Índice de zona inválido")
+        raise HTTPException(status_code=400, detail="Indice de zona invalido")
 
     zona = ZONAS[zona_index]
     try:

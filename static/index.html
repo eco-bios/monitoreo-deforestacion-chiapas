@@ -97,15 +97,6 @@
             border-color: #4ade80;
         }
 
-        .row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .row>div {
-            flex: 1;
-        }
-
         button.primary {
             width: 100%;
             background: #4ade80;
@@ -192,16 +183,10 @@
             padding: 12px;
         }
 
-        .indice-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
         .indice-nombre {
             font-size: 0.78rem;
             color: #94a3b8;
+            margin-bottom: 4px;
         }
 
         .indice-valor {
@@ -257,7 +242,6 @@
         .barra-fill {
             height: 100%;
             border-radius: 2px;
-            transition: width 0.5s;
         }
 
         .interpretacion {
@@ -325,6 +309,7 @@
 </head>
 
 <body>
+
     <div class="header">
         <h1>🛰️ Monitoreo Forestal Chiapas</h1>
         <p>Análisis de salud vegetal con imágenes satelitales Sentinel-2</p>
@@ -336,6 +321,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('punto', event)">📍 Punto</button>
                 <button class="tab" onclick="switchTab('poligono', event)">🔷 Polígono</button>
+                <button class="tab" onclick="switchTab('serie', event)">📈 Serie</button>
             </div>
 
             <!-- Panel Punto -->
@@ -409,6 +395,44 @@
                 </div>
             </div>
 
+            <!-- Panel Serie Temporal -->
+            <div class="panel" id="panel-serie">
+                <div class="card">
+                    <label>Nombre del sitio</label>
+                    <input type="text" id="nombre-serie" value="Mi sitio">
+                    <label>Latitud</label>
+                    <input type="number" id="lat-serie" placeholder="Ej: 16.8" step="any">
+                    <label>Longitud</label>
+                    <input type="number" id="lon-serie" placeholder="Ej: -91.5" step="any">
+                    <div class="años-selector" style="margin-top:10px;">
+                        <div>
+                            <label>Año inicio</label>
+                            <select id="anio_inicio_serie">
+                                <option value="2017" selected>2017</option>
+                                <option value="2018">2018</option>
+                                <option value="2019">2019</option>
+                                <option value="2020">2020</option>
+                                <option value="2021">2021</option>
+                                <option value="2022">2022</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Año fin</label>
+                            <select id="anio_fin_serie">
+                                <option value="2022">2022</option>
+                                <option value="2023">2023</option>
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="primary" id="btn-serie" onclick="analizarSerie()">📈 Analizar Serie</button>
+                    <small style="color:#94a3b8; display:block; margin-top:8px; text-align:center;">⚠️ Este análisis
+                        tarda 3-5 minutos</small>
+                </div>
+            </div>
+
             <div class="loading" id="loading">⏳ Consultando imágenes satelitales...<br><small>Esto tarda 30-60
                     segundos</small></div>
             <div class="error" id="error"></div>
@@ -430,7 +454,6 @@
     <script>
         const API = 'https://monitoreo-chiapas-306961522035.us-central1.run.app';
 
-        // Inicializar mapa
         const map = L.map('map').setView([16.5, -92.0], 8);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Esri World Imagery'
@@ -450,21 +473,14 @@
             const idx = div.children.length + 1;
             const row = document.createElement('div');
             row.className = 'vertice-row';
-            row.innerHTML = `
-        <input type="number" placeholder="Lon ${idx}" step="any">
-        <input type="number" placeholder="Lat ${idx}" step="any">
-    `;
+            row.innerHTML = `<input type="number" placeholder="Lon ${idx}" step="any"><input type="number" placeholder="Lat ${idx}" step="any">`;
             div.appendChild(row);
         }
 
         function mostrarEnMapa(lat, lon, radio) {
             if (capaActual) map.removeLayer(capaActual);
             capaActual = L.circle([lat, lon], {
-                color: '#4ade80',
-                fillColor: '#4ade80',
-                fillOpacity: 0.15,
-                radius: radio || 1000,
-                weight: 2
+                color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.15, radius: radio || 1000, weight: 2
             }).addTo(map);
             map.setView([lat, lon], 13);
         }
@@ -473,10 +489,7 @@
             if (capaActual) map.removeLayer(capaActual);
             const latlngs = vertices.map(v => [v[1], v[0]]);
             capaActual = L.polygon(latlngs, {
-                color: '#4ade80',
-                fillColor: '#4ade80',
-                fillOpacity: 0.15,
-                weight: 2
+                color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.15, weight: 2
             }).addTo(map);
             map.fitBounds(capaActual.getBounds(), { padding: [40, 40] });
         }
@@ -485,17 +498,13 @@
             const ndviDelta = indices.ndvi.delta;
             const nbrDelta = indices.nbr.delta;
             let texto = '';
-
             if (ndviDelta > 0.1) texto += `🌿 La vegetación mejoró significativamente entre ${anioBase} y ${anioActual}. `;
-            else if (ndviDelta > 0.02) texto += `🌱 La vegetación muestra una mejora moderada entre ${anioBase} y ${anioActual}. `;
+            else if (ndviDelta > 0.02) texto += `🌱 La vegetación muestra mejora moderada entre ${anioBase} y ${anioActual}. `;
             else if (ndviDelta > -0.02) texto += `➡️ La vegetación se mantiene estable entre ${anioBase} y ${anioActual}. `;
-            else if (ndviDelta > -0.1) texto += `⚠️ Se detecta degradación leve de la vegetación entre ${anioBase} y ${anioActual}. `;
-            else texto += `🚨 Se detecta degradación severa de la vegetación entre ${anioBase} y ${anioActual}. `;
-
+            else if (ndviDelta > -0.1) texto += `⚠️ Se detecta degradación leve entre ${anioBase} y ${anioActual}. `;
+            else texto += `🚨 Se detecta degradación severa entre ${anioBase} y ${anioActual}. `;
             if (nbrDelta < -0.15) texto += '🔥 Posible actividad de incendio reciente detectada.';
             else if (nbrDelta > 0.05) texto += '✅ Sin evidencia de incendios recientes.';
-            else texto += '🔍 Condición post-incendio estable.';
-
             return texto;
         }
 
@@ -516,30 +525,23 @@
                 ndvi: { pos: 'Más vegetación', neg: 'Menos vegetación', neu: 'Sin cambio' },
                 evi: { pos: 'Mayor densidad forestal', neg: 'Menor densidad forestal', neu: 'Sin cambio' },
                 nbr: { pos: 'Bosque más sano', neg: 'Posible quema o perturbación', neu: 'Sin cambio' },
-                ndwi: { pos: 'Más agua en vegetación — indica bosque maduro', neg: 'Menos agua — posible conversión a pasto', neu: 'Sin cambio' },
-                bsi: { pos: 'Más suelo expuesto — alerta de deforestación', neg: 'Menos suelo expuesto — recuperación', neu: 'Sin cambio' }
+                ndwi: { pos: 'Más agua — indica bosque maduro', neg: 'Menos agua — posible conversión a pasto', neu: 'Sin cambio' },
+                bsi: { pos: 'Más suelo expuesto — alerta deforestación', neg: 'Menos suelo expuesto — recuperación', neu: 'Sin cambio' }
             };
 
-            // Clasificación
             const clasBase = data.clasificacion[String(anioBase)];
             const clasActual = data.clasificacion[String(anioActual)];
             let htmlClas = `
         <div style="margin-bottom:12px; background:#0a1628; border-radius:8px; padding:12px;">
             <div style="font-size:0.78rem; color:#94a3b8; margin-bottom:6px;">🌿 Tipo de cobertura vegetal</div>
-            <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-                <span><span style="color:#94a3b8">${anioBase}: </span><strong>${clasBase}</strong></span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-top:4px;">
-                <span><span style="color:#94a3b8">${anioActual}: </span><strong style="color:#4ade80">${clasActual}</strong></span>
-            </div>
+            <div style="font-size:0.85rem; margin-bottom:4px;"><span style="color:#94a3b8">${anioBase}: </span><strong>${clasBase}</strong></div>
+            <div style="font-size:0.85rem;"><span style="color:#94a3b8">${anioActual}: </span><strong style="color:#4ade80">${clasActual}</strong></div>
             ${clasBase !== clasActual ? `<div style="margin-top:8px; font-size:0.82rem; color:#fbbf24;">⚠️ El tipo de cobertura cambió entre ${anioBase} y ${anioActual}</div>` : ''}
         </div>`;
 
             let html = htmlClas;
-
             for (const [key, val] of Object.entries(data.indices)) {
                 const delta = val.delta;
-                // Para BSI el delta positivo es malo (más suelo desnudo)
                 const esBSI = key === 'bsi';
                 const deltaClass = Math.abs(delta) < 0.02 ? 'neutro' : (esBSI ? (delta > 0 ? 'negativo' : 'positivo') : (delta > 0 ? 'positivo' : 'negativo'));
                 const deltaIcon = Math.abs(delta) < 0.02 ? '→' : delta > 0 ? '▲' : '▼';
@@ -567,33 +569,92 @@
             document.getElementById('resultado').style.display = 'block';
         }
 
+        function mostrarSerie(data) {
+            const años = data.serie.ndvi.map(d => d.anio);
+            const ndvi = data.serie.ndvi.map(d => d.valor);
+            const ndwi = data.serie.ndwi.map(d => d.valor);
+            const bsi = data.serie.bsi.map(d => d.valor);
+
+            document.getElementById('sitio-nombre').textContent = '📈 ' + data.sitio + ` (${data.anio_inicio} → ${data.anio_fin})`;
+
+            const w = 320; const h = 160; const pad = 30;
+            const xStep = (w - pad * 2) / (años.length - 1);
+
+            function toY(v) {
+                if (v === null) return null;
+                return pad + (1 - v) / 2 * (h - pad * 2);
+            }
+
+            function linea(valores, color) {
+                const puntos = valores.map((v, i) => {
+                    const y = toY(v);
+                    return y !== null ? `${pad + i * xStep},${y}` : null;
+                }).filter(Boolean);
+                return `<polyline points="${puntos.join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>`;
+            }
+
+            function puntos(valores, color) {
+                return valores.map((v, i) => {
+                    const y = toY(v);
+                    return y !== null ? `<circle cx="${pad + i * xStep}" cy="${y}" r="3" fill="${color}"/>` : '';
+                }).join('');
+            }
+
+            function etiquetasX() {
+                return años.map((a, i) => `<text x="${pad + i * xStep}" y="${h - 5}" text-anchor="middle" font-size="9" fill="#94a3b8">${a}</text>`).join('');
+            }
+
+            const svg = `<svg width="${w}" height="${h}" style="width:100%;overflow:visible">
+        ${linea(ndvi, '#4ade80')}${puntos(ndvi, '#4ade80')}
+        ${linea(ndwi, '#60a5fa')}${puntos(ndwi, '#60a5fa')}
+        ${linea(bsi, '#f87171')}${puntos(bsi, '#f87171')}
+        ${etiquetasX()}
+        <text x="5" y="15" font-size="9" fill="#4ade80">■ NDVI</text>
+        <text x="50" y="15" font-size="9" fill="#60a5fa">■ NDWI</text>
+        <text x="95" y="15" font-size="9" fill="#f87171">■ BSI</text>
+    </svg>`;
+
+            let htmlClas = '<div style="margin-top:12px;">';
+            data.clasificaciones.forEach(c => {
+                const color = c.clasificacion.includes('quemada') || c.clasificacion.includes('deforestacion') ? '#f87171' :
+                    c.clasificacion.includes('Selva') ? '#4ade80' : '#fbbf24';
+                htmlClas += `<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:4px 0;border-bottom:1px solid #2d3f5a;">
+            <span style="color:#94a3b8">${c.anio}</span>
+            <span style="color:${color}">${c.clasificacion}</span>
+        </div>`;
+            });
+            htmlClas += '</div>';
+
+            document.getElementById('indices').innerHTML = `
+        <div style="background:#0a1628;border-radius:8px;padding:12px;margin-bottom:12px;">
+            <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:8px;">Tendencia de índices espectrales</div>
+            ${svg}
+        </div>${htmlClas}`;
+
+            document.getElementById('interpretacion').textContent = '';
+            document.getElementById('resultado').style.display = 'block';
+        }
+
         async function analizarPunto() {
             const nombre = document.getElementById('nombre').value;
             const lat = parseFloat(document.getElementById('lat').value);
             const lon = parseFloat(document.getElementById('lon').value);
             const anio_base = parseInt(document.getElementById('anio_base').value);
             const anio_actual = parseInt(document.getElementById('anio_actual').value);
-
             if (!lat || !lon) { mostrarError('Ingresa latitud y longitud'); return; }
             if (anio_base >= anio_actual) { mostrarError('El año base debe ser menor al año actual'); return; }
-
             mostrarEnMapa(lat, lon, 1000);
             iniciarCarga('btn-punto');
-
             try {
                 const res = await fetch(API + '/analizar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ lat, lon, nombre, anio_base, anio_actual })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail);
                 mostrarResultado(data);
-            } catch (e) {
-                mostrarError('Error: ' + e.message);
-            } finally {
-                terminarCarga('btn-punto', '🔍 Analizar');
-            }
+            } catch (e) { mostrarError('Error: ' + e.message); }
+            finally { terminarCarga('btn-punto', '🔍 Analizar'); }
         }
 
         async function analizarPoligono() {
@@ -602,34 +663,47 @@
             const anio_actual = parseInt(document.getElementById('anio_actual_pol').value);
             const rows = document.querySelectorAll('#vertices .vertice-row');
             const vertices = [];
-
             rows.forEach(row => {
                 const inputs = row.querySelectorAll('input');
                 const lon = parseFloat(inputs[0].value);
                 const lat = parseFloat(inputs[1].value);
                 if (!isNaN(lon) && !isNaN(lat)) vertices.push([lon, lat]);
             });
-
             if (vertices.length < 3) { mostrarError('Ingresa al menos 3 vértices'); return; }
             if (anio_base >= anio_actual) { mostrarError('El año base debe ser menor al año actual'); return; }
-
             mostrarPoligonoEnMapa(vertices);
             iniciarCarga('btn-poligono');
-
             try {
                 const res = await fetch(API + '/analizar/poligono', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vertices, nombre, anio_base, anio_actual })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail);
                 mostrarResultado(data);
-            } catch (e) {
-                mostrarError('Error: ' + e.message);
-            } finally {
-                terminarCarga('btn-poligono', '🔍 Analizar');
-            }
+            } catch (e) { mostrarError('Error: ' + e.message); }
+            finally { terminarCarga('btn-poligono', '🔍 Analizar'); }
+        }
+
+        async function analizarSerie() {
+            const nombre = document.getElementById('nombre-serie').value;
+            const lat = parseFloat(document.getElementById('lat-serie').value);
+            const lon = parseFloat(document.getElementById('lon-serie').value);
+            const anio_inicio = parseInt(document.getElementById('anio_inicio_serie').value);
+            const anio_fin = parseInt(document.getElementById('anio_fin_serie').value);
+            if (!lat || !lon) { mostrarError('Ingresa latitud y longitud'); return; }
+            mostrarEnMapa(lat, lon, 1000);
+            iniciarCarga('btn-serie');
+            try {
+                const res = await fetch(API + '/analizar/serie-temporal', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat, lon, nombre, anio_inicio, anio_fin })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail);
+                mostrarSerie(data);
+            } catch (e) { mostrarError('Error: ' + e.message); }
+            finally { terminarCarga('btn-serie', '📈 Analizar Serie'); }
         }
 
         function iniciarCarga(btnId) {

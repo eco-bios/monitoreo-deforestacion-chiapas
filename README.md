@@ -11,10 +11,12 @@ https://monitoreo-chiapas-306961522035.us-central1.run.app
 https://monitoreo-chiapas-306961522035.us-central1.run.app/docs
 
 ## 🏗️ Arquitectura
+...
 Sentinel-2 (ESA) → Google Earth Engine → FastAPI → GCP Cloud Run
 ↓
 Cloud Scheduler (rotación diaria)
 5 zonas de Chiapas automatizadas
+...
 ## 📊 Índices Espectrales
 
 | Índice | Bandas | Qué detecta |
